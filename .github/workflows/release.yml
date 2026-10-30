@@ -1,55 +1,56 @@
 
-name: Release
+name: Android ARM64 Debug Build
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
-    inputs:
-      tag:
-        description: Existing release tag
-        required: true
-        type: string
-      no-publish:
-        description: Build without publishing
-        required: false
-        default: false
-        type: boolean
+
+  push:
+    branches:
+      - dev
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   android:
-    name: Android ARM64
+    name: Build Android ARM64 Debug APK
     runs-on: ubuntu-latest
 
     steps:
+      # 1. 获取源码
       - name: Checkout source code
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0
           submodules: recursive
 
+      # 2. 加载项目构建版本
       - uses: ./.github/actions/load-build-versions
+
+      # 3. 配置 Android NDK
       - uses: ./.github/actions/setup-ndk
+
+      # 4. 配置 JDK
       - uses: ./.github/actions/setup-jbr
 
+      # 5. Gradle 缓存
       - uses: ./.github/actions/gradle-cache
         with:
           read-only: 'true'
-          build-cache-name: release-android
+          build-cache-name: debug-android
 
-      - uses: actions/setup-go@v7
+      # 6. 配置 Go
+      - name: Setup Go
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: false
 
+      # 7. Go Android 缓存
       - uses: ./.github/actions/go-android-cache
         with:
           read-only: 'true'
 
+      # 8. 缓存资源文件
       - name: Cache route assets
         id: cache-assets
         uses: actions/cache@v6
@@ -57,74 +58,32 @@ jobs:
           path: composeApp/src/commonMain/composeResources/files/sing-box
           key: assets-v2-${{ env.GEOIP_VERSION }}-${{ env.GEOSITE_VERSION }}-${{ hashFiles('buildScript/lib/assets.sh', 'libcore/cmd/internal/ruleset_generate/**', 'libcore/go.mod', 'libcore/go.sum') }}
 
+      # 9. 准备资源
       - name: Prepare assets
         if: steps.cache-assets.outputs.cache-hit != 'true'
         run: make assets
 
-      - name: Write signing properties
-        env:
-          LOCAL_PROPERTIES: ${{ secrets.LOCAL_PROPERTIES }}
-        run: printf '%s' "$LOCAL_PROPERTIES" > local.properties
-
+      # 10. 构建 Android Go 核心
       - name: Build Android libcore
         run: make libcore_android
 
+      # 11. 下载 Go 依赖
       - name: Download Go modules
         run: cd libcore && go mod download
 
+      # 12. 生成库信息
       - name: Generate library metadata
         run: make aboutlibraries_go aboutlibraries_android
 
-      - name: Build Android APK
-        run: make apk
+      # 13. 编译 Android ARM64 Debug APK
+      - name: Build Android Debug APK
+        run: ./gradlew :androidApp:assembleFossDebug
 
-      - uses: actions/upload-artifact@v7
+      # 14. 上传 APK
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v7
         with:
-          name: android-arm64-v8a
-          path: androidApp/build/outputs/apk/**/*.apk
+          name: husi-android-arm64-debug
+          path: androidApp/build/outputs/apk/foss/debug/*.apk
           if-no-files-found: error
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: mapping-android
-          path: androidApp/build/outputs/mapping/fossRelease/mapping.txt
-          if-no-files-found: error
-          compression-level: 9
-
-  publish:
-    needs: android
-    if: ${{ !inputs.no-publish }}
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Download Android APK
-        uses: actions/download-artifact@v8
-        with:
-          name: android-arm64-v8a
-          path: release-artifacts
-
-      - name: Download R8 mapping
-        uses: actions/download-artifact@v8
-        with:
-          name: mapping-android
-          path: mapping
-
-      - name: Bundle R8 mapping
-        env:
-          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
-        run: |
-          cd mapping
-          zip -9 -r -q "$GITHUB_WORKSPACE/release-artifacts/mapping-$RELEASE_TAG.zip" .
-
-      - name: Publish GitHub Release
-        env:
-          GH_REPO: ${{ github.repository }}
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
-        run: |
-          mapfile -d '' files < <(find release-artifacts -type f -print0)
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" "${files[@]}" --clobber
-          else
-            gh release create "$RELEASE_TAG" "${files[@]}" --title "$RELEASE_TAG" --generate-notes --prerelease
-          fi
+          retention-days: 7
