@@ -697,25 +697,7 @@ private fun ExitIPCard(
                 Text(stringOrRes(error), color = MaterialTheme.colorScheme.error)
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                Button(
-                    onClick = detectIP,
-                    enabled = !state.isDoing,
-                ) {
-                    Text(
-                        stringResource(
-                            if (state.isDoing) {
-                                Res.string.loading
-                            } else {
-                                Res.string.ip_test_detect
-                            },
-                        ),
-                    )
-                }
-            }
+
         }
     }
 }
