@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -553,24 +554,48 @@ fun DashboardScreen(
                 modifier = Modifier.fillMaxSize(),
             ) { page ->
                 when (page) {
-                    PAGE_STATUS -> DashboardStatusScreen(
-                        uiState = uiState,
-                        openConnectController = openConnectController,
-                        openVPNController = openVPNController,
-                        contentPadding = pageContentPadding,
-                        detectIP = dashboardViewModel::detectIP,
-                        selectClashMode = { dashboardViewModel.setClashMode(it) },
-                        setSystemProxyEnabled = { dashboardViewModel.setSystemProxyEnabled(it) },
-                        showError = { message ->
-                            snackbar.show(StringOrRes.Direct(message))
-                        },
-                        onCopySuccess = {
-                            snackbar.show(StringOrRes.Res(Res.string.copy_success))
-                        },
-                        isEditing = isEditingDashboard,
-                        onWidgetsChange = { dashboardViewModel.setDashboardWidgets(it) },
-                        onOpenTailscaleEndpoint = onOpenTailscaleEndpoint,
-                    )
+                    PAGE_STATUS -> Column(modifier = Modifier.fillMaxSize()) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            DashboardStatusScreen(
+                                uiState = uiState,
+                                openConnectController = openConnectController,
+                                openVPNController = openVPNController,
+                                contentPadding = PaddingValues(
+                                    top = pageContentPadding.calculateTopPadding(),
+                                    bottom = 8.dp,
+                                ),
+                                detectIP = dashboardViewModel::detectIP,
+                                selectClashMode = { dashboardViewModel.setClashMode(it) },
+                                setSystemProxyEnabled = { dashboardViewModel.setSystemProxyEnabled(it) },
+                                showError = { message ->
+                                    snackbar.show(StringOrRes.Direct(message))
+                                },
+                                onCopySuccess = {
+                                    snackbar.show(StringOrRes.Res(Res.string.copy_success))
+                                },
+                                isEditing = isEditingDashboard,
+                                onWidgetsChange = { dashboardViewModel.setDashboardWidgets(it) },
+                                onOpenTailscaleEndpoint = onOpenTailscaleEndpoint,
+                            )
+                        }
+                        Box(modifier = Modifier.weight(1f)) {
+                            DashboardProxySetScreen(
+                                uiState = uiState,
+                                contentPadding = PaddingValues(
+                                    top = 8.dp,
+                                    bottom = pageContentPadding.calculateBottomPadding(),
+                                ),
+                                selectProxy = { group, proxy ->
+                                    dashboardViewModel.selectOutbound(group, proxy)
+                                },
+                                urlTestForSingle = dashboardViewModel::urlTestForSingle,
+                                urlTestForGroup = dashboardViewModel::urlTestForGroup,
+                                groupSearchTextFieldState = dashboardViewModel.proxyGroupSearchTextFieldState,
+                                openGroupSearch = dashboardViewModel::openProxyGroupSearch,
+                                closeGroupSearch = dashboardViewModel::closeProxyGroupSearch,
+                            )
+                        }
+                    }
 
                     PAGE_CONNECTIONS -> DashboardConnectionsScreen(
                         uiState = uiState,
@@ -657,7 +682,6 @@ fun DashboardScreen(
         title = { Text(stringResource(Res.string.reset_connections)) },
         text = { Text(stringResource(Res.string.ensure_close_all, uiState.activeConnectionCount)) },
     )
-
 }
 
 @Composable
