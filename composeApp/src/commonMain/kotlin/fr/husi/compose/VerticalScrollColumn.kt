@@ -48,7 +48,7 @@ fun VerticalScrollColumn(
                     .height(with(density) { viewportHeight.toDp() }),
                 adapter = rememberScrollbarAdapter(scrollState = scrollState),
                 style = defaultMaterialScrollbarStyle().copy(
-                    thickness = 12.dp,
+                    thickness = 3.dp,
                 ),
             )
         }
