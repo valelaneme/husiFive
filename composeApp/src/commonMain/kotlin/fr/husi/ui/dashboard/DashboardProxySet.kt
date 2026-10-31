@@ -105,7 +105,7 @@ internal fun DashboardProxySetScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(
-                items = uiState.proxySets,
+                items = uiState.proxySets.filterNot { it.isAll },
                 key = { it.id },
                 contentType = { 0 },
             ) { proxySet ->
