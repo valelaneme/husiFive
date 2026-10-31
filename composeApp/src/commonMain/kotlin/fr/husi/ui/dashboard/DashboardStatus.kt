@@ -658,8 +658,6 @@ private fun ExitIPCard(
     state: IPProbeState,
     detectIP: () -> Unit,
 ) {
-    var visible by remember(state.isDoing) { mutableStateOf(false) }
-
     // 进入状态页面时自动检测一次
     LaunchedEffect(Unit) {
         detectIP()
@@ -674,20 +672,14 @@ private fun ExitIPCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            HideableSectionTitle(
-                title = stringResource(Res.string.ip_test),
-                visible = visible,
-                onToggleVisible = { visible = !visible },
+            Text(
+                text = stringResource(Res.string.ip_test),
+                style = MaterialTheme.typography.titleMedium,
             )
             state.ip?.let { ip ->
-                val address = if (visible) {
-                    ip
-                } else {
-                    maskNetworkAddress(ip)
-                }
                 val displayText = countryEmoji(state.countryCode)?.let { emoji ->
-                    "$emoji $address"
-                } ?: address
+                    "$emoji $ip"
+                } ?: ip
                 Text(
                     text = displayText,
                     style = MaterialTheme.typography.bodyLarge,
@@ -696,8 +688,6 @@ private fun ExitIPCard(
             state.error?.let { error ->
                 Text(stringOrRes(error), color = MaterialTheme.colorScheme.error)
             }
-
-
         }
     }
 }
