@@ -91,11 +91,7 @@ import fr.husi.resources.dashboard_done_editing
 import fr.husi.resources.dashboard_edit_widgets
 import fr.husi.resources.descending
 import fr.husi.resources.ensure_close_all
-import fr.husi.resources.group_order_by_delay
-import fr.husi.resources.group_order_by_name
-import fr.husi.resources.group_order_origin
 import fr.husi.resources.have_reset_network
-import fr.husi.resources.layers
 import fr.husi.resources.menu_dashboard
 import fr.husi.resources.more
 import fr.husi.resources.more_vert
@@ -103,17 +99,12 @@ import fr.husi.resources.no_thanks
 import fr.husi.resources.ok
 import fr.husi.resources.pause
 import fr.husi.resources.play_arrow
-import fr.husi.resources.proxy_set
-import fr.husi.resources.public_icon
 import fr.husi.resources.replay
 import fr.husi.resources.reset
 import fr.husi.resources.reset_connections
 import fr.husi.resources.search
-import fr.husi.resources.search_outbounds
-import fr.husi.resources.search_proxy_sets
 import fr.husi.resources.sort
 import fr.husi.resources.sort_mode
-import fr.husi.resources.switch_search_mode
 import fr.husi.resources.traffic_connections
 import fr.husi.resources.traffic_status
 import fr.husi.resources.warning_amber
@@ -131,7 +122,6 @@ import org.koin.compose.koinInject
 
 private const val PAGE_STATUS = 0
 private const val PAGE_CONNECTIONS = 1
-private const val PAGE_PROXY_SET = 2
 
 @Composable
 fun DashboardScreen(
@@ -148,7 +138,7 @@ fun DashboardScreen(
 
     val pagerState = rememberPagerState(
         initialPage = 0,
-        pageCount = { 3 },
+        pageCount = { 2 },
     )
 
     val remoteControl = koinInject<RemoteControlManager>()
@@ -170,12 +160,9 @@ fun DashboardScreen(
     }
     val focusManager = LocalFocusManager.current
     val isConnectionsPage = pagerState.currentPage == PAGE_CONNECTIONS
-    val isProxySetPage = pagerState.currentPage == PAGE_PROXY_SET
 
     val searchBarState = rememberSearchBarState()
-    val proxySetSearchBarState = rememberSearchBarState()
     val searchTextFieldState = dashboardViewModel.searchTextFieldState
-    val proxySetSearchTextFieldState = dashboardViewModel.proxySetSearchTextFieldState
     val searchInputField: @Composable () -> Unit = {
         CapsuleSearchInputField(
             textFieldState = searchTextFieldState,
@@ -201,75 +188,15 @@ fun DashboardScreen(
             },
         )
     }
-    val proxySetSearchInputField: @Composable () -> Unit = {
-        CapsuleSearchInputField(
-            textFieldState = proxySetSearchTextFieldState,
-            searchBarState = proxySetSearchBarState,
-            onSearch = { focusManager.clearFocus() },
-            placeholder = {
-                Text(
-                    stringResource(
-                        when (uiState.proxySetQuery.mode) {
-                            ProxySetSearchMode.Outbound -> Res.string.search_outbounds
-                            ProxySetSearchMode.ProxySet -> Res.string.search_proxy_sets
-                        },
-                    ),
-                )
-            },
-            leadingIcon = {
-                SimpleIconButton(
-                    imageVector = vectorResource(
-                        when (uiState.proxySetQuery.mode) {
-                            ProxySetSearchMode.Outbound -> Res.drawable.public_icon
-                            ProxySetSearchMode.ProxySet -> Res.drawable.layers
-                        },
-                    ),
-                    contentDescription = stringResource(Res.string.switch_search_mode),
-                    onClick = dashboardViewModel::toggleProxySetSearchMode,
-                )
-            },
-            trailingIcon = if (proxySetSearchBarState.currentValue == SearchBarValue.Expanded) {
-                {
-                    SimpleIconButton(
-                        imageVector = vectorResource(Res.drawable.close),
-                        contentDescription = stringResource(Res.string.cancel),
-                        onClick = {
-                            dashboardViewModel.clearProxySetSearch()
-                            scope.launch { proxySetSearchBarState.animateToCollapsed() }
-                        },
-                    )
-                }
-            } else {
-                null
-            },
-        )
-    }
     val windowInsets = WindowInsets.safeDrawing
 
     LaunchedEffect(pagerState.currentPage) {
         if (pagerState.currentPage != PAGE_STATUS) isEditingDashboard = false
-        if (pagerState.currentPage != PAGE_PROXY_SET) {
-            dashboardViewModel.clearProxySetSearch()
-            proxySetSearchBarState.animateToCollapsed()
-        }
     }
 
     LaunchedEffect(searchBarState.currentValue) {
         if (searchBarState.currentValue == SearchBarValue.Collapsed) {
             dashboardViewModel.clearSearchQuery()
-        }
-    }
-
-    LaunchedEffect(proxySetSearchBarState.currentValue) {
-        when (proxySetSearchBarState.currentValue) {
-            SearchBarValue.Expanded -> dashboardViewModel.closeProxyGroupSearch()
-            SearchBarValue.Collapsed -> dashboardViewModel.clearProxySetGlobalQuery()
-        }
-    }
-
-    LaunchedEffect(uiState.proxySetQuery.searchingProxyGroup) {
-        if (uiState.proxySetQuery.searchingProxyGroup != null) {
-            proxySetSearchBarState.animateToCollapsed()
         }
     }
 
@@ -442,29 +369,6 @@ fun DashboardScreen(
                             windowInsets = windowInsets.only(WindowInsetsSides.Horizontal),
                             scrollBehavior = scrollBehavior,
                         )
-                    } else if (isProxySetPage) {
-                        CapsuleSearchTopBar(
-                            hazeState = hazeState,
-                            inputField = proxySetSearchInputField,
-                            navigationIcon = null,
-                            actions = {
-                                DashboardPageOverflowMenu(
-                                    expanded = isOverflowMenuExpanded,
-                                    onExpandedChange = { isOverflowMenuExpanded = it },
-                                    onOpenRemoteControl = onOpenRemoteControl,
-                                ) { dismiss ->
-                                    ProxySetOrderMenuItems(
-                                        proxySetOrder = uiState.proxySetOrder,
-                                        onSelect = { order ->
-                                            dismiss()
-                                            dashboardViewModel.setProxySetOrder(order)
-                                        },
-                                    )
-                                }
-                            },
-                            windowInsets = windowInsets.only(WindowInsetsSides.Horizontal),
-                            scrollBehavior = scrollBehavior,
-                        )
                     } else {
                         CapsuleTopBar(
                             hazeState = hazeState,
@@ -522,15 +426,6 @@ fun DashboardScreen(
                             onClick = {
                                 scope.launch {
                                     pagerState.animateScrollToPage(PAGE_CONNECTIONS)
-                                }
-                            },
-                        )
-                        Tab(
-                            text = { Text(stringResource(Res.string.proxy_set)) },
-                            selected = pagerState.currentPage == PAGE_PROXY_SET,
-                            onClick = {
-                                scope.launch {
-                                    pagerState.animateScrollToPage(PAGE_PROXY_SET)
                                 }
                             },
                         )
@@ -605,19 +500,6 @@ fun DashboardScreen(
                             dashboardViewModel.closeConnection(uuid)
                         },
                         onConnectionClick = dashboardViewModel::selectConnection,
-                    )
-
-                    PAGE_PROXY_SET -> DashboardProxySetScreen(
-                        uiState = uiState,
-                        contentPadding = pageContentPadding,
-                        selectProxy = { group, proxy ->
-                            dashboardViewModel.selectOutbound(group, proxy)
-                        },
-                        urlTestForSingle = dashboardViewModel::urlTestForSingle,
-                        urlTestForGroup = dashboardViewModel::urlTestForGroup,
-                        groupSearchTextFieldState = dashboardViewModel.proxyGroupSearchTextFieldState,
-                        openGroupSearch = dashboardViewModel::openProxyGroupSearch,
-                        closeGroupSearch = dashboardViewModel::closeProxyGroupSearch,
                     )
 
                     else -> error("impossible")
@@ -740,27 +622,4 @@ private fun EditWidgetsMenuItem(
         onClick = onClick,
         shape = MenuDefaults.itemShape(0, 1).shape,
     )
-}
-
-@Composable
-private fun ProxySetOrderMenuItems(
-    proxySetOrder: Int,
-    onSelect: (Int) -> Unit,
-) {
-    DropdownMenuSectionHeader(stringResource(Res.string.sort_mode))
-    val orders = ProxySetOrder.values
-    for ((i, order) in orders.withIndex()) {
-        val text = when (order) {
-            ProxySetOrder.ORIGIN -> Res.string.group_order_origin
-            ProxySetOrder.BY_NAME -> Res.string.group_order_by_name
-            ProxySetOrder.BY_DELAY -> Res.string.group_order_by_delay
-            else -> continue
-        }
-        DropdownMenuItem(
-            selected = proxySetOrder == order,
-            onClick = { onSelect(order) },
-            text = { Text(stringResource(text)) },
-            shapes = MenuDefaults.itemShape(i, orders.size),
-        )
-    }
 }
