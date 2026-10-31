@@ -450,7 +450,7 @@ fun DashboardScreen(
             ) { page ->
                 when (page) {
                     PAGE_STATUS -> Column(modifier = Modifier.fillMaxSize()) {
-                        Box(modifier = Modifier.weight(1.05f)) {
+                        Box(modifier = Modifier.weight(1.1f)) {
                             DashboardStatusScreen(
                                 uiState = uiState,
                                 openConnectController = openConnectController,
