@@ -338,7 +338,6 @@ fun GroupScreen(
             text = { Text(stringResource(Res.string.clear_profiles_message)) },
         )
     }
-
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -372,17 +371,6 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
         Column(
             modifier = Modifier.fillMaxWidth(),
         ) {
-            if (state.isUpdating) {
-                LinearProgressIndicator(
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            } else if (state.updateProgress != null) {
-                LinearProgressIndicator(
-                    progress = { state.updateProgress.progress },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -404,6 +392,7 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                         .weight(1f)
                         .padding(0.dp),
                 ) {
+                    // 1. 标题行：标题 + 配置个数并排
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -414,17 +403,62 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                         Row(
                             modifier = Modifier.weight(1f),
                             verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Column(
                                 modifier = Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(2.dp),
                             ) {
-                                Text(
-                                    text = group.displayName(),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    fontWeight = FontWeight.Bold,
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Text(
+                                        text = group.displayName(),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+
+                                    // 配置个数追加在标题后
+                                    val countText = when (state.group.type) {
+                                        GroupType.BASIC -> {
+                                            if (state.counts == 0L) {
+                                                stringResource(Res.string.group_status_empty)
+                                            } else {
+                                                pluralStringResource(
+                                                    Res.plurals.group_status_proxies,
+                                                    state.counts.toInt(),
+                                                    state.counts,
+                                                )
+                                            }
+                                        }
+
+                                        GroupType.SUBSCRIPTION -> {
+                                            if (state.counts == 0L) {
+                                                if (state.group.subscription!!.lastUpdated > 0) {
+                                                    stringResource(Res.string.group_status_updated_empty)
+                                                } else {
+                                                    stringResource(Res.string.group_status_empty_subscription)
+                                                }
+                                            } else {
+                                                pluralStringResource(
+                                                    Res.plurals.group_status_proxies,
+                                                    state.counts.toInt(),
+                                                    state.counts,
+                                                )
+                                            }
+                                        }
+
+                                        else -> stringResource(Res.string.group_status_empty)
+                                    }
+
+                                    Text(
+                                        text = countText,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
 
                                 val subscription = group.subscription
                                 subscription?.username.blankAsNull()?.let { username ->
@@ -645,45 +679,60 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                         }
                     }
 
+                    // 2. 详情信息行：流量与上次更新时间收纳为单行展示
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 0.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Bottom,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(
                             modifier = Modifier
                                 .weight(1f)
-                                .padding(bottom = 8.dp),
+                                .padding(bottom = 4.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             val subscription = group.subscription
-                            if (subscription != null &&
-                                (subscription.bytesUsed > 0L || subscription.bytesRemaining > 0)
-                            ) {
-                                Text(
-                                    text = if (subscription.bytesRemaining > 0L) {
-                                        stringResource(
-                                            Res.string.subscription_traffic,
-                                            subscription.bytesUsed.formatBytes(),
-                                            subscription.bytesRemaining.formatBytes(),
-                                        )
-                                    } else {
-                                        stringResource(
-                                            Res.string.subscription_used,
-                                            subscription.bytesUsed.formatBytes(),
-                                        )
-                                    },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
 
-                                if (subscription.expiryDate > 0) {
+                            // 流量与更新时间排在同一行
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                if (subscription != null &&
+                                    (subscription.bytesUsed > 0L || subscription.bytesRemaining > 0)
+                                ) {
+                                    Text(
+                                        text = if (subscription.bytesRemaining > 0L) {
+                                            stringResource(
+                                                Res.string.subscription_traffic,
+                                                subscription.bytesUsed.formatBytes(),
+                                                subscription.bytesRemaining.formatBytes(),
+                                            )
+                                        } else {
+                                            stringResource(
+                                                Res.string.subscription_used,
+                                                subscription.bytesUsed.formatBytes(),
+                                            )
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+
+                                if (state.group.type == GroupType.SUBSCRIPTION &&
+                                    state.group.subscription!!.lastUpdated > 0
+                                ) {
                                     Text(
                                         text = stringResource(
-                                            Res.string.subscription_expire,
-                                            DisplayTime.date(Instant.fromEpochSeconds(subscription.expiryDate)),
+                                            Res.string.subscription_last_updated,
+                                            DisplayTime.dateTime(
+                                                Instant.fromEpochSeconds(
+                                                    state.group.subscription!!.lastUpdated.toLong(),
+                                                ),
+                                            ),
                                         ),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -691,58 +740,17 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                                 }
                             }
 
-                            if (state.group.type == GroupType.SUBSCRIPTION &&
-                                state.group.subscription!!.lastUpdated > 0
-                            ) {
+                            // 到期时间独立展示
+                            if (subscription != null && subscription.expiryDate > 0) {
                                 Text(
                                     text = stringResource(
-                                        Res.string.subscription_last_updated,
-                                        DisplayTime.dateTime(
-                                            Instant.fromEpochSeconds(
-                                                state.group.subscription!!.lastUpdated.toLong(),
-                                            ),
-                                        ),
+                                        Res.string.subscription_expire,
+                                        DisplayTime.date(Instant.fromEpochSeconds(subscription.expiryDate)),
                                     ),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
-
-                            Text(
-                                text = when (state.group.type) {
-                                    GroupType.BASIC -> {
-                                        if (state.counts == 0L) {
-                                            stringResource(Res.string.group_status_empty)
-                                        } else {
-                                            pluralStringResource(
-                                                Res.plurals.group_status_proxies,
-                                                state.counts.toInt(),
-                                                state.counts,
-                                            )
-                                        }
-                                    }
-
-                                    GroupType.SUBSCRIPTION -> {
-                                        if (state.counts == 0L) {
-                                            if (state.group.subscription!!.lastUpdated > 0) {
-                                                stringResource(Res.string.group_status_updated_empty)
-                                            } else {
-                                                stringResource(Res.string.group_status_empty_subscription)
-                                            }
-                                        } else {
-                                            pluralStringResource(
-                                                Res.plurals.group_status_proxies,
-                                                state.counts.toInt(),
-                                                state.counts,
-                                            )
-                                        }
-                                    }
-
-                                    else -> stringResource(Res.string.group_status_empty)
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
                         }
 
                         if (group.type == GroupType.SUBSCRIPTION) {
@@ -759,6 +767,18 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                         }
                     }
                 }
+            }
+
+            // 3. 进度条放置在卡片最底端
+            if (state.isUpdating) {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else if (state.updateProgress != null) {
+                LinearProgressIndicator(
+                    progress = { state.updateProgress.progress },
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }
