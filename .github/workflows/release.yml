@@ -53,20 +53,11 @@ jobs:
         if: steps.cache-assets.outputs.cache-hit != 'true'
         run: make assets
 
-      # 1. 解码还原你自己的证书，覆盖仓库默认的旧 release.keystore
+      # 解码还原密钥文件
       - name: Decode Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: echo "$KEYSTORE_BASE64" | base64 --decode > release.keystore
-
-      # 2. 写入签名属性，并关闭后台守护进程防止进程意外退出
-      - name: Write signing properties
-        env:
-          LOCAL_PROPERTIES: ${{ secrets.LOCAL_PROPERTIES }}
-        run: |
-          printf '%s\n' "$LOCAL_PROPERTIES" > local.properties
-          echo "org.gradle.daemon=false" >> gradle.properties
-          echo "org.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=512m" >> gradle.properties
 
       - name: Build Android libcore
         run: make libcore_android
@@ -74,8 +65,15 @@ jobs:
         run: cd libcore && go mod download
       - name: Generate about libraries metadata
         run: make aboutlibraries_go aboutlibraries_android
+
+      # 传入官方要求的环境变量，直接编译打包
       - name: Build Android app
+        env:
+          KEYSTORE_PASS: valelaneme@gmail.com
+          ALIAS_NAME: husiluna
+          ALIAS_PASS: valelaneme@gmail.com
         run: make apk
+
       - uses: actions/upload-artifact@v7
         with:
           name: android
