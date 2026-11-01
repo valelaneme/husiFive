@@ -284,7 +284,7 @@ fun GroupScreen(
                     .fillMaxHeight(),
                 adapter = rememberScrollbarAdapter(scrollState = dragDropListState.lazyListState),
                 style = defaultMaterialScrollbarStyle().copy(
-                    thickness = 12.dp,
+                    thickness = 3.dp,
                 ),
             )
         }

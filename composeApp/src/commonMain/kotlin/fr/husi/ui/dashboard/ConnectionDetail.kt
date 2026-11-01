@@ -413,7 +413,7 @@ internal fun ConnectionDetailSheet(
                 modifier = Modifier.fillMaxHeight(),
                 adapter = rememberScrollbarAdapter(scrollState = listState),
                 style = defaultMaterialScrollbarStyle().copy(
-                    thickness = 12.dp,
+                    thickness = 3.dp,
                 ),
             )
         }

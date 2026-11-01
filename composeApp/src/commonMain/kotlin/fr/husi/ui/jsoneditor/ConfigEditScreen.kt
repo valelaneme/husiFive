@@ -594,7 +594,7 @@ private fun ConfigEditScreenContent(
                         .fillMaxHeight(),
                     adapter = rememberScrollbarAdapter(scrollState = verticalScrollState),
                     style = defaultMaterialScrollbarStyle().copy(
-                        thickness = 12.dp,
+                        thickness = 3.dp,
                     ),
                 )
             }

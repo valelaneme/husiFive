@@ -312,7 +312,7 @@ private fun GetCertContent(
                 .fillMaxHeight(),
             adapter = rememberScrollbarAdapter(scrollState = scrollState),
             style = defaultMaterialScrollbarStyle().copy(
-                thickness = 12.dp,
+                thickness = 3.dp,
             ),
         )
     }

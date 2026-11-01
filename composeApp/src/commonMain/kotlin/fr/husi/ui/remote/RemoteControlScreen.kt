@@ -172,7 +172,7 @@ fun RemoteControlScreen(
                     .padding(contentPadding)
                     .fillMaxHeight(),
                 adapter = rememberScrollbarAdapter(scrollState = listState),
-                style = defaultMaterialScrollbarStyle().copy(thickness = 12.dp),
+                style = defaultMaterialScrollbarStyle().copy(thickness = 3.dp),
             )
         }
     }
