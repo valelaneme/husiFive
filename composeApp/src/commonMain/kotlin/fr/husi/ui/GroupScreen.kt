@@ -1,5 +1,7 @@
 package fr.husi.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +39,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -45,7 +48,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -129,6 +134,7 @@ import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.resources.vectorResource
+import kotlin.math.abs
 import kotlin.time.Instant
 
 @Composable
@@ -187,10 +193,32 @@ fun GroupScreen(
     val hazeState = rememberHazeState()
     val dragDropListState = rememberDragDropSwipeLazyColumnState()
 
+    // 左右滑动阈值：与配置页面手势一致（80dp）
+    val density = LocalDensity.current
+    val swipeThresholdPx = remember(density) { with(density) { 80.dp.toPx() } }
+    var totalDragAmount by remember { mutableFloatStateOf(0f) }
+
     Scaffold(
         modifier = modifier
             .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
+            .nestedScroll(scrollBehavior.nestedScrollConnection)
+            // 全屏横向滑动返回监听
+            .pointerInput(swipeThresholdPx) {
+                detectHorizontalDragGestures(
+                    onDragStart = { totalDragAmount = 0f },
+                    onHorizontalDrag = { change, dragAmount ->
+                        change.consume()
+                        totalDragAmount += dragAmount
+                    },
+                    onDragEnd = {
+                        if (abs(totalDragAmount) >= swipeThresholdPx) {
+                            onBackPress()
+                        }
+                        totalDragAmount = 0f
+                    },
+                    onDragCancel = { totalDragAmount = 0f },
+                )
+            },
         topBar = {
             CapsuleTopBar(
                 hazeState = hazeState,
@@ -244,20 +272,15 @@ fun GroupScreen(
                 contentPadding = contentPadding,
                 onIndicesChangedViaDragAndDrop = { viewModel.submitReorder(it) },
             ) { _, groupState ->
-                val removable = !groupState.group.ungrouped && !groupState.isUpdating
-
                 DraggableSwipeableItem(
                     modifier = Modifier.animateDraggableSwipeableItem(),
                     colors = DraggableSwipeableItemColors.createRemembered(
                         containerBackgroundColor = Color.Transparent,
                         containerBackgroundColorWhileDragged = Color.Transparent,
                     ),
-                    allowedSwipeDirections = if (removable) {
-                        AllowedSwipeDirections.All
-                    } else {
-                        AllowedSwipeDirections.None
-                    },
-                    onSwipeDismiss = { viewModel.undoableRemove(groupState.group.id) },
+                    // 禁用卡片内部的划出删除，手势交由外层 Scaffold 统一返回
+                    allowedSwipeDirections = AllowedSwipeDirections.None,
+                    onSwipeDismiss = {},
                 ) {
                     GroupCard(
                         mainViewModel = mainViewModel,
@@ -367,7 +390,7 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
         enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
     )
 
-    // 解除 48dp 最小触摸占位限制，让图标大小精确保持在 40.dp
+    // 解除 48dp 最小触摸占位限制，统一保持在 40.dp
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
         ElevatedCard(
             modifier = modifier
@@ -381,7 +404,7 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.Top, // 统一顶部对齐，不使用整行垂直居中
+                    verticalAlignment = Alignment.Top,
                 ) {
                     // 左侧拖动手柄：保持 40.dp
                     Icon(
@@ -484,7 +507,6 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                                     )
                                 }
 
-                                // 仅订阅分组显示更新图标
                                 if (group.type == GroupType.SUBSCRIPTION) {
                                     SimpleIconButton(
                                         modifier = Modifier.size(40.dp),
@@ -687,11 +709,10 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                             }
                         }
 
-                        // 第二行：如果是订阅展示流量与更新时间；如果是基本分组则展示一个 16.dp 的空行占位
+                        // 第二行：订阅分组展示流量（左）与更新时间（右）；基本分组占位
                         if (group.type == GroupType.SUBSCRIPTION) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 val subscription = group.subscription
@@ -716,6 +737,9 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                                     )
                                 }
 
+                                // 弹簧占位，将上次更新时间推到最右侧
+                                Spacer(modifier = Modifier.weight(1f))
+
                                 if (state.group.subscription!!.lastUpdated > 0) {
                                     Text(
                                         text = stringResource(
@@ -732,19 +756,26 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                                 }
                             }
                         } else {
-                            // 基本分组空行占位，高度与 bodySmall 保持完全一致
+                            // 基本分组空行占位（高度与 bodySmall 保持一致）
                             Spacer(modifier = Modifier.height(16.dp))
                         }
                     }
                 }
 
-                // 进度条保持在卡片底部
+                // 3. 卡片最底端条形：更新时显示进度条；平时和基本分组显示 4dp 装饰底轨
                 if (state.isUpdating) {
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 } else if (state.updateProgress != null) {
                     LinearProgressIndicator(
                         progress = { state.updateProgress.progress },
                         modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
                     )
                 }
             }
