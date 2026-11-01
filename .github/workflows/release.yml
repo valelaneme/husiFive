@@ -53,23 +53,20 @@ jobs:
         if: steps.cache-assets.outputs.cache-hit != 'true'
         run: make assets
 
-      # 1. 云端现场解码还原证书，并同步分发到工作目录
+      # 1. 解码还原你自己的证书，覆盖仓库默认的旧 release.keystore
       - name: Decode Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > release.keystore
-          mkdir -p androidApp
-          cp release.keystore androidApp/release.keystore
+        run: echo "$KEYSTORE_BASE64" | base64 --decode > release.keystore
 
-      # 2. 写入 local.properties 采用绝对路径，并配置 JVM 内存防崩溃
+      # 2. 写入签名属性，并关闭后台守护进程防止进程意外退出
       - name: Write signing properties
         env:
           LOCAL_PROPERTIES: ${{ secrets.LOCAL_PROPERTIES }}
         run: |
           printf '%s\n' "$LOCAL_PROPERTIES" > local.properties
-          sed -i "s|.*storeFile=.*|foss.storeFile=$GITHUB_WORKSPACE/release.keystore\nrelease.storeFile=$GITHUB_WORKSPACE/release.keystore|g" local.properties
-          echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m" >> gradle.properties
+          echo "org.gradle.daemon=false" >> gradle.properties
+          echo "org.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=512m" >> gradle.properties
 
       - name: Build Android libcore
         run: make libcore_android
