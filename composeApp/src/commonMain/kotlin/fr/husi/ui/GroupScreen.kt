@@ -424,7 +424,7 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                             .padding(end = 4.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
-                        // 第一行：[标题 + 到期时间 + 配置数量] --- [编辑 + 更新 + 更多]
+                        // 第一行：[标题 + 配置数量] --- [编辑 + 更新 + 更多]
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -441,18 +441,6 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                                     color = MaterialTheme.colorScheme.onSurface,
                                     fontWeight = FontWeight.Bold,
                                 )
-
-                                val subscription = group.subscription
-                                if (subscription != null && subscription.expiryDate > 0) {
-                                    Text(
-                                        text = stringResource(
-                                            Res.string.subscription_expire,
-                                            DisplayTime.date(Instant.fromEpochSeconds(subscription.expiryDate)),
-                                        ),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
 
                                 val countText = when (state.group.type) {
                                     GroupType.BASIC -> {
@@ -662,8 +650,8 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                                                         scope.launch {
                                                             val links = withContext(Dispatchers.IO) {
                                                                 SagerDatabase.proxyDao
-                                                                .getByGroup(group.id)
-                                                                .first()
+                                                                    .getByGroup(group.id)
+                                                                    .first()
                                                             }.joinToString("\n") {
                                                                 it.toStdLink()
                                                             }
@@ -709,50 +697,66 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                             }
                         }
 
-                        // 第二行：订阅分组展示流量（左）与更新时间（右）；基本分组占位
+                        // 第二行：订阅分组展示 [左: 过期时间] - [中: 已用 / 剩余] - [右: 更新时间]
                         if (group.type == GroupType.SUBSCRIPTION) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 val subscription = group.subscription
-                                if (subscription != null &&
-                                    (subscription.bytesUsed > 0L || subscription.bytesRemaining > 0)
-                                ) {
-                                    Text(
-                                        text = if (subscription.bytesRemaining > 0L) {
-                                            stringResource(
-                                                Res.string.subscription_traffic,
-                                                subscription.bytesUsed.formatBytes(),
-                                                subscription.bytesRemaining.formatBytes(),
-                                            )
+
+                                // 左侧：过期时间
+                                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                                    if (subscription != null && subscription.expiryDate > 0) {
+                                        Text(
+                                            text = stringResource(
+                                                Res.string.subscription_expire,
+                                                DisplayTime.date(Instant.fromEpochSeconds(subscription.expiryDate)),
+                                            ),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                        )
+                                    }
+                                }
+
+                                // 中间：已用 / 剩余 流量
+                                Box(contentAlignment = Alignment.Center) {
+                                    if (subscription != null && (subscription.bytesUsed > 0L || subscription.bytesRemaining > 0L)) {
+                                        val trafficText = if (subscription.bytesRemaining > 0L) {
+                                            "${subscription.bytesUsed.formatBytes()} / ${subscription.bytesRemaining.formatBytes()}"
                                         } else {
                                             stringResource(
                                                 Res.string.subscription_used,
                                                 subscription.bytesUsed.formatBytes(),
                                             )
-                                        },
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
+                                        }
+                                        Text(
+                                            text = trafficText,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                        )
+                                    }
                                 }
 
-                                // 弹簧占位，将上次更新时间推到最右侧
-                                Spacer(modifier = Modifier.weight(1f))
-
-                                if (state.group.subscription!!.lastUpdated > 0) {
-                                    Text(
-                                        text = stringResource(
-                                            Res.string.subscription_last_updated,
-                                            DisplayTime.dateTime(
-                                                Instant.fromEpochSeconds(
-                                                    state.group.subscription!!.lastUpdated.toLong(),
+                                // 右侧：更新时间
+                                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                                    if (state.group.subscription!!.lastUpdated > 0) {
+                                        Text(
+                                            text = stringResource(
+                                                Res.string.subscription_last_updated,
+                                                DisplayTime.dateTime(
+                                                    Instant.fromEpochSeconds(
+                                                        state.group.subscription!!.lastUpdated.toLong(),
+                                                    ),
                                                 ),
                                             ),
-                                        ),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                        )
+                                    }
                                 }
                             }
                         } else {
@@ -762,13 +766,22 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                     }
                 }
 
-                // 3. 卡片最底端条形：更新时显示进度条；平时和基本分组显示 4dp 装饰底轨
+                // 3. 卡片最底端条形：更新状态显示更新进度；未更新时若订阅有流量信息则展示剩余比例进度条；无流量/基本分组则展示 4dp 装饰底轨
+                val subscription = group.subscription
+                val totalBytes = (subscription?.bytesUsed ?: 0L) + (subscription?.bytesRemaining ?: 0L)
+
                 if (state.isUpdating) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(4.dp))
                 } else if (state.updateProgress != null) {
                     LinearProgressIndicator(
                         progress = { state.updateProgress.progress },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().height(4.dp),
+                    )
+                } else if (group.type == GroupType.SUBSCRIPTION && totalBytes > 0L) {
+                    val remainingProgress = (subscription!!.bytesRemaining.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
+                    LinearProgressIndicator(
+                        progress = { remainingProgress },
+                        modifier = Modifier.fillMaxWidth().height(4.dp),
                     )
                 } else {
                     Box(
