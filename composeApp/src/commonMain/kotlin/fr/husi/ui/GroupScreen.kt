@@ -4,11 +4,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -18,6 +20,7 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
@@ -30,6 +33,7 @@ import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import fr.husi.compose.CapsuleTopBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,6 +47,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -354,7 +359,6 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
 ) {
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
-
     val group = state.group
 
     var showOptionsSheet by remember { mutableStateOf(false) }
@@ -363,195 +367,262 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
         enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
     )
 
-    ElevatedCard(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 3.dp),
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
+    // 解除 48dp 最小触摸占位限制，让图标大小精确保持在 40.dp
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+        ElevatedCard(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 3.dp),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            Column(
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                // 左侧拖动把手
-                Icon(
-                    imageVector = vectorResource(Res.drawable.drag_indicator),
-                    contentDescription = "Drag to reorder",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                Row(
                     modifier = Modifier
-                        .size(40.dp)
-                        .padding(8.dp)
-                        .dragDropModifier(),
-                )
-
-                // 中间主体展示区
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(end = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.Top, // 统一顶部对齐，不使用整行垂直居中
                 ) {
-                    // 第一行：[订阅名称 + 到期时间 + 配置数量] --- [编辑 + 菜单按钮]
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Row(
-                            modifier = Modifier.weight(1f),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            // 订阅名称保持粗体标题样式
-                            Text(
-                                text = group.displayName(),
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontWeight = FontWeight.Bold,
-                            )
+                    // 左侧拖动手柄：保持 40.dp
+                    Icon(
+                        imageVector = vectorResource(Res.drawable.drag_indicator),
+                        contentDescription = "Drag to reorder",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .padding(8.dp)
+                            .dragDropModifier(),
+                    )
 
-                            // 到期时间使用说明样式 bodySmall
-                            val subscription = group.subscription
-                            if (subscription != null && subscription.expiryDate > 0) {
+                    // 中间主体展示区
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        // 第一行：[标题 + 到期时间 + 配置数量] --- [编辑 + 更新 + 更多]
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
                                 Text(
-                                    text = stringResource(
-                                        Res.string.subscription_expire,
-                                        DisplayTime.date(Instant.fromEpochSeconds(subscription.expiryDate)),
-                                    ),
+                                    text = group.displayName(),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.Bold,
+                                )
+
+                                val subscription = group.subscription
+                                if (subscription != null && subscription.expiryDate > 0) {
+                                    Text(
+                                        text = stringResource(
+                                            Res.string.subscription_expire,
+                                            DisplayTime.date(Instant.fromEpochSeconds(subscription.expiryDate)),
+                                        ),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+
+                                val countText = when (state.group.type) {
+                                    GroupType.BASIC -> {
+                                        if (state.counts == 0L) {
+                                            stringResource(Res.string.group_status_empty)
+                                        } else {
+                                            pluralStringResource(
+                                                Res.plurals.group_status_proxies,
+                                                state.counts.toInt(),
+                                                state.counts,
+                                            )
+                                        }
+                                    }
+                                    GroupType.SUBSCRIPTION -> {
+                                        if (state.counts == 0L) {
+                                            if (state.group.subscription!!.lastUpdated > 0) {
+                                                stringResource(Res.string.group_status_updated_empty)
+                                            } else {
+                                                stringResource(Res.string.group_status_empty_subscription)
+                                            }
+                                        } else {
+                                            pluralStringResource(
+                                                Res.plurals.group_status_proxies,
+                                                state.counts.toInt(),
+                                                state.counts,
+                                            )
+                                        }
+                                    }
+                                    else -> stringResource(Res.string.group_status_empty)
+                                }
+
+                                Text(
+                                    text = countText,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
 
-                            // 配置数量使用说明样式 bodySmall
-                            val countText = when (state.group.type) {
-                                GroupType.BASIC -> {
-                                    if (state.counts == 0L) {
-                                        stringResource(Res.string.group_status_empty)
-                                    } else {
-                                        pluralStringResource(
-                                            Res.plurals.group_status_proxies,
-                                            state.counts.toInt(),
-                                            state.counts,
-                                        )
-                                    }
+                            // 右侧按钮排布：编辑 / 更新（仅订阅） / 更多
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.End,
+                            ) {
+                                if (!group.ungrouped) {
+                                    SimpleIconButton(
+                                        modifier = Modifier.size(40.dp),
+                                        imageVector = vectorResource(Res.drawable.edit),
+                                        contentDescription = stringResource(Res.string.edit),
+                                        onClick = {
+                                            openGroupSettings(group.id)
+                                        },
+                                    )
                                 }
 
-                                GroupType.SUBSCRIPTION -> {
-                                    if (state.counts == 0L) {
-                                        if (state.group.subscription!!.lastUpdated > 0) {
-                                            stringResource(Res.string.group_status_updated_empty)
-                                        } else {
-                                            stringResource(Res.string.group_status_empty_subscription)
-                                        }
-                                    } else {
-                                        pluralStringResource(
-                                            Res.plurals.group_status_proxies,
-                                            state.counts.toInt(),
-                                            state.counts,
-                                        )
-                                    }
-                                }
-
-                                else -> stringResource(Res.string.group_status_empty)
-                            }
-
-                            Text(
-                                text = countText,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-
-                        // 操作按钮（编辑 / 更多）
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (!group.ungrouped) {
-                                SimpleIconButton(
-                                    imageVector = vectorResource(Res.drawable.edit),
-                                    contentDescription = stringResource(Res.string.edit),
-                                    onClick = {
-                                        openGroupSettings(group.id)
-                                    },
-                                )
-                            }
-
-                            Box {
-                                SimpleIconButton(
-                                    imageVector = vectorResource(Res.drawable.more_vert),
-                                    contentDescription = stringResource(Res.string.menu),
-                                    onClick = { showOptionsSheet = true },
-                                )
-
-                                if (showOptionsSheet) {
-                                    ModalBottomSheet(
-                                        onDismissRequest = { showOptionsSheet = false },
-                                        sheetState = optionsSheetState,
-                                    ) {
-                                        Column(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                                        ) {
-                                            val subscriptionLink =
-                                                group.subscription?.link?.blankAsNull()
-
-                                            subscriptionLink?.let { link ->
-                                                SheetSectionTitle(
-                                                    text = stringResource(Res.string.share_subscription),
-                                                    leadingIcon = {
-                                                        Icon(
-                                                            imageVector = vectorResource(Res.drawable.share),
-                                                            contentDescription = null,
-                                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        )
-                                                    },
-                                                )
-                                                SheetActionRow(
-                                                    text = stringResource(Res.string.action_export_clipboard),
-                                                    leadingIcon = {
-                                                        Icon(
-                                                            imageVector = vectorResource(Res.drawable.content_copy),
-                                                            contentDescription = null,
-                                                        )
-                                                    },
-                                                    onClick = {
-                                                        scope.launch {
-                                                            clipboard.setPlainText(link)
-                                                            snackbar(
-                                                                resolveRepository().getString(
-                                                                    Res.string.copy_success,
-                                                                ),
-                                                            )
-                                                        }
-                                                        showOptionsSheet = false
-                                                    },
-                                                )
-                                                SheetActionRow(
-                                                    text = stringResource(Res.string.share_qr_nfc),
-                                                    leadingIcon = {
-                                                        Icon(
-                                                            imageVector = vectorResource(Res.drawable.qr_code),
-                                                            contentDescription = null,
-                                                        )
-                                                    },
-                                                    onClick = {
-                                                        showQRDialog(link, group.displayName())
-                                                        showOptionsSheet = false
-                                                    },
-                                                )
+                                // 仅订阅分组显示更新图标
+                                if (group.type == GroupType.SUBSCRIPTION) {
+                                    SimpleIconButton(
+                                        modifier = Modifier.size(40.dp),
+                                        imageVector = vectorResource(Res.drawable.update),
+                                        contentDescription = stringResource(Res.string.update),
+                                        onClick = {
+                                            if (!state.isUpdating) {
+                                                mainViewModel.updateSubscriptionGroup(group)
                                             }
-                                            if (group.subscription != null) {
+                                        },
+                                    )
+                                }
+
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.size(40.dp),
+                                ) {
+                                    SimpleIconButton(
+                                        modifier = Modifier.size(40.dp),
+                                        imageVector = vectorResource(Res.drawable.more_vert),
+                                        contentDescription = stringResource(Res.string.menu),
+                                        onClick = { showOptionsSheet = true },
+                                    )
+
+                                    if (showOptionsSheet) {
+                                        ModalBottomSheet(
+                                            onDismissRequest = { showOptionsSheet = false },
+                                            sheetState = optionsSheetState,
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                                            ) {
+                                                val subscriptionLink =
+                                                    group.subscription?.link?.blankAsNull()
+
+                                                subscriptionLink?.let { link ->
+                                                    SheetSectionTitle(
+                                                        text = stringResource(Res.string.share_subscription),
+                                                        leadingIcon = {
+                                                            Icon(
+                                                                imageVector = vectorResource(Res.drawable.share),
+                                                                contentDescription = null,
+                                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            )
+                                                        },
+                                                    )
+                                                    SheetActionRow(
+                                                        text = stringResource(Res.string.action_export_clipboard),
+                                                        leadingIcon = {
+                                                            Icon(
+                                                                imageVector = vectorResource(Res.drawable.content_copy),
+                                                                contentDescription = null,
+                                                            )
+                                                        },
+                                                        onClick = {
+                                                            scope.launch {
+                                                                clipboard.setPlainText(link)
+                                                                snackbar(
+                                                                    resolveRepository().getString(
+                                                                        Res.string.copy_success,
+                                                                    ),
+                                                                )
+                                                            }
+                                                            showOptionsSheet = false
+                                                        },
+                                                    )
+                                                    SheetActionRow(
+                                                        text = stringResource(Res.string.share_qr_nfc),
+                                                        leadingIcon = {
+                                                            Icon(
+                                                                imageVector = vectorResource(Res.drawable.qr_code),
+                                                                contentDescription = null,
+                                                            )
+                                                        },
+                                                        onClick = {
+                                                            showQRDialog(link, group.displayName())
+                                                            showOptionsSheet = false
+                                                        },
+                                                    )
+                                                }
+                                                if (group.subscription != null) {
+                                                    HorizontalDivider()
+                                                    SheetSectionTitle(
+                                                        text = stringResource(Res.string.internal_link),
+                                                        leadingIcon = {
+                                                            Icon(
+                                                                imageVector = vectorResource(Res.drawable.link),
+                                                                contentDescription = null,
+                                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            )
+                                                        },
+                                                    )
+                                                    SheetActionRow(
+                                                        text = stringResource(Res.string.action_export_clipboard),
+                                                        leadingIcon = {
+                                                            Icon(
+                                                                imageVector = vectorResource(Res.drawable.content_copy),
+                                                                contentDescription = null,
+                                                            )
+                                                        },
+                                                        onClick = {
+                                                            scope.launch {
+                                                                clipboard.setPlainText(group.toUniversalLink())
+                                                                snackbar(
+                                                                    resolveRepository().getString(
+                                                                        Res.string.copy_success,
+                                                                    ),
+                                                                )
+                                                            }
+                                                            showOptionsSheet = false
+                                                        },
+                                                    )
+                                                    SheetActionRow(
+                                                        text = stringResource(Res.string.share_qr_nfc),
+                                                        leadingIcon = {
+                                                            Icon(
+                                                                imageVector = vectorResource(Res.drawable.qr_code),
+                                                                contentDescription = null,
+                                                            )
+                                                        },
+                                                        onClick = {
+                                                            showQRDialog(
+                                                                group.toUniversalLink(),
+                                                                group.displayName(),
+                                                            )
+                                                            showOptionsSheet = false
+                                                        },
+                                                    )
+                                                }
                                                 HorizontalDivider()
                                                 SheetSectionTitle(
-                                                    text = stringResource(Res.string.internal_link),
+                                                    text = stringResource(Res.string.action_export),
                                                     leadingIcon = {
                                                         Icon(
-                                                            imageVector = vectorResource(Res.drawable.link),
+                                                            imageVector = vectorResource(Res.drawable.file_export),
                                                             contentDescription = null,
                                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                                         )
@@ -567,179 +638,115 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                                                     },
                                                     onClick = {
                                                         scope.launch {
-                                                            clipboard.setPlainText(group.toUniversalLink())
-                                                            snackbar(
-                                                                resolveRepository().getString(
-                                                                    Res.string.copy_success,
-                                                                ),
-                                                            )
+                                                            val links = withContext(Dispatchers.IO) {
+                                                                SagerDatabase.proxyDao
+                                                                .getByGroup(group.id)
+                                                                .first()
+                                                            }.joinToString("\n") {
+                                                                it.toStdLink()
+                                                            }
+                                                            clipboard.setPlainText(links)
+                                                            snackbar(resolveRepository().getString(Res.string.copy_success))
                                                         }
                                                         showOptionsSheet = false
                                                     },
                                                 )
                                                 SheetActionRow(
-                                                    text = stringResource(Res.string.share_qr_nfc),
+                                                    text = stringResource(Res.string.action_export_file),
                                                     leadingIcon = {
                                                         Icon(
-                                                            imageVector = vectorResource(Res.drawable.qr_code),
+                                                            imageVector = vectorResource(Res.drawable.file_export),
                                                             contentDescription = null,
                                                         )
                                                     },
                                                     onClick = {
-                                                        showQRDialog(
-                                                            group.toUniversalLink(),
-                                                            group.displayName(),
-                                                        )
+                                                        exportToFile()
                                                         showOptionsSheet = false
                                                     },
                                                 )
+                                                HorizontalDivider()
+                                                SheetActionRow(
+                                                    text = stringResource(Res.string.clear_profiles),
+                                                    leadingIcon = {
+                                                        Icon(
+                                                            imageVector = vectorResource(Res.drawable.delete),
+                                                            contentDescription = null,
+                                                        )
+                                                    },
+                                                    textColor = MaterialTheme.colorScheme.error,
+                                                    iconTint = MaterialTheme.colorScheme.error,
+                                                    onClick = {
+                                                        showOptionsSheet = false
+                                                        showClearGroupDialog()
+                                                    },
+                                                )
                                             }
-                                            HorizontalDivider()
-                                            SheetSectionTitle(
-                                                text = stringResource(Res.string.action_export),
-                                                leadingIcon = {
-                                                    Icon(
-                                                        imageVector = vectorResource(Res.drawable.file_export),
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    )
-                                                },
-                                            )
-                                            SheetActionRow(
-                                                text = stringResource(Res.string.action_export_clipboard),
-                                                leadingIcon = {
-                                                    Icon(
-                                                        imageVector = vectorResource(Res.drawable.content_copy),
-                                                        contentDescription = null,
-                                                    )
-                                                },
-                                                onClick = {
-                                                    scope.launch {
-                                                        val links = withContext(Dispatchers.IO) {
-                                                            SagerDatabase.proxyDao
-                                                                .getByGroup(group.id)
-                                                                .first()
-                                                        }.joinToString("\n") {
-                                                            it.toStdLink()
-                                                        }
-                                                        clipboard.setPlainText(links)
-                                                        snackbar(resolveRepository().getString(Res.string.copy_success))
-                                                    }
-                                                    showOptionsSheet = false
-                                                },
-                                            )
-                                            SheetActionRow(
-                                                text = stringResource(Res.string.action_export_file),
-                                                leadingIcon = {
-                                                    Icon(
-                                                        imageVector = vectorResource(Res.drawable.file_export),
-                                                        contentDescription = null,
-                                                    )
-                                                },
-                                                onClick = {
-                                                    exportToFile()
-                                                    showOptionsSheet = false
-                                                },
-                                            )
-                                            HorizontalDivider()
-                                            SheetActionRow(
-                                                text = stringResource(Res.string.clear_profiles),
-                                                leadingIcon = {
-                                                    Icon(
-                                                        imageVector = vectorResource(Res.drawable.delete),
-                                                        contentDescription = null,
-                                                    )
-                                                },
-                                                textColor = MaterialTheme.colorScheme.error,
-                                                iconTint = MaterialTheme.colorScheme.error,
-                                                onClick = {
-                                                    showOptionsSheet = false
-                                                    showClearGroupDialog()
-                                                },
-                                            )
                                         }
                                     }
                                 }
                             }
                         }
-                    }
 
-                    // 第二行：[已用/剩余流量 + 上次更新时间] --- [更新按钮]
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Row(
-                            modifier = Modifier.weight(1f),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            val subscription = group.subscription
-                            if (subscription != null &&
-                                (subscription.bytesUsed > 0L || subscription.bytesRemaining > 0)
+                        // 第二行：如果是订阅展示流量与更新时间；如果是基本分组则展示一个 16.dp 的空行占位
+                        if (group.type == GroupType.SUBSCRIPTION) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(
-                                    text = if (subscription.bytesRemaining > 0L) {
-                                        stringResource(
-                                            Res.string.subscription_traffic,
-                                            subscription.bytesUsed.formatBytes(),
-                                            subscription.bytesRemaining.formatBytes(),
-                                        )
-                                    } else {
-                                        stringResource(
-                                            Res.string.subscription_used,
-                                            subscription.bytesUsed.formatBytes(),
-                                        )
-                                    },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
+                                val subscription = group.subscription
+                                if (subscription != null &&
+                                    (subscription.bytesUsed > 0L || subscription.bytesRemaining > 0)
+                                ) {
+                                    Text(
+                                        text = if (subscription.bytesRemaining > 0L) {
+                                            stringResource(
+                                                Res.string.subscription_traffic,
+                                                subscription.bytesUsed.formatBytes(),
+                                                subscription.bytesRemaining.formatBytes(),
+                                            )
+                                        } else {
+                                            stringResource(
+                                                Res.string.subscription_used,
+                                                subscription.bytesUsed.formatBytes(),
+                                            )
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
 
-                            if (state.group.type == GroupType.SUBSCRIPTION &&
-                                state.group.subscription!!.lastUpdated > 0
-                            ) {
-                                Text(
-                                    text = stringResource(
-                                        Res.string.subscription_last_updated,
-                                        DisplayTime.dateTime(
-                                            Instant.fromEpochSeconds(
-                                                state.group.subscription!!.lastUpdated.toLong(),
+                                if (state.group.subscription!!.lastUpdated > 0) {
+                                    Text(
+                                        text = stringResource(
+                                            Res.string.subscription_last_updated,
+                                            DisplayTime.dateTime(
+                                                Instant.fromEpochSeconds(
+                                                    state.group.subscription!!.lastUpdated.toLong(),
+                                                ),
                                             ),
                                         ),
-                                    ),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                             }
-                        }
-
-                        if (group.type == GroupType.SUBSCRIPTION) {
-                            TextButton(
-                                onClick = { mainViewModel.updateSubscriptionGroup(group) },
-                                enabled = !state.isUpdating,
-                            ) {
-                                Text(
-                                    text = stringResource(Res.string.update),
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                            }
+                        } else {
+                            // 基本分组空行占位，高度与 bodySmall 保持完全一致
+                            Spacer(modifier = Modifier.height(16.dp))
                         }
                     }
                 }
-            }
 
-            // 进度条保持在卡片底部
-            if (state.isUpdating) {
-                LinearProgressIndicator(
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            } else if (state.updateProgress != null) {
-                LinearProgressIndicator(
-                    progress = { state.updateProgress.progress },
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                // 进度条保持在卡片底部
+                if (state.isUpdating) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                } else if (state.updateProgress != null) {
+                    LinearProgressIndicator(
+                        progress = { state.updateProgress.progress },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
         }
     }
