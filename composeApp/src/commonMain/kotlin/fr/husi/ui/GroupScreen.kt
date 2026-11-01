@@ -366,7 +366,7 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
     ElevatedCard(
         modifier = modifier
             .fillMaxWidth()
-            .padding(4.dp),
+            .padding(horizontal = 4.dp, vertical = 3.dp),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -374,9 +374,10 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(0.dp),
+                    .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                // 左侧拖动把手
                 Icon(
                     imageVector = vectorResource(Res.drawable.drag_indicator),
                     contentDescription = "Drag to reorder",
@@ -387,16 +388,16 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                         .dragDropModifier(),
                 )
 
+                // 中间主体展示区
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(0.dp),
+                        .padding(end = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    // 1. 标题行：标题 + 配置个数并排
+                    // 第一行：[订阅名称 + 到期时间 + 配置数量] --- [编辑 + 菜单按钮]
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 0.dp, end = 4.dp, top = 12.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -405,73 +406,69 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Column(
-                                modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(2.dp),
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    Text(
-                                        text = group.displayName(),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontWeight = FontWeight.Bold,
-                                    )
+                            // 订阅名称保持粗体标题样式
+                            Text(
+                                text = group.displayName(),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Bold,
+                            )
 
-                                    // 配置个数追加在标题后
-                                    val countText = when (state.group.type) {
-                                        GroupType.BASIC -> {
-                                            if (state.counts == 0L) {
-                                                stringResource(Res.string.group_status_empty)
-                                            } else {
-                                                pluralStringResource(
-                                                    Res.plurals.group_status_proxies,
-                                                    state.counts.toInt(),
-                                                    state.counts,
-                                                )
-                                            }
-                                        }
-
-                                        GroupType.SUBSCRIPTION -> {
-                                            if (state.counts == 0L) {
-                                                if (state.group.subscription!!.lastUpdated > 0) {
-                                                    stringResource(Res.string.group_status_updated_empty)
-                                                } else {
-                                                    stringResource(Res.string.group_status_empty_subscription)
-                                                }
-                                            } else {
-                                                pluralStringResource(
-                                                    Res.plurals.group_status_proxies,
-                                                    state.counts.toInt(),
-                                                    state.counts,
-                                                )
-                                            }
-                                        }
-
-                                        else -> stringResource(Res.string.group_status_empty)
-                                    }
-
-                                    Text(
-                                        text = countText,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-
-                                val subscription = group.subscription
-                                subscription?.username.blankAsNull()?.let { username ->
-                                    Text(
-                                        text = username,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
+                            // 到期时间使用说明样式 bodySmall
+                            val subscription = group.subscription
+                            if (subscription != null && subscription.expiryDate > 0) {
+                                Text(
+                                    text = stringResource(
+                                        Res.string.subscription_expire,
+                                        DisplayTime.date(Instant.fromEpochSeconds(subscription.expiryDate)),
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
+
+                            // 配置数量使用说明样式 bodySmall
+                            val countText = when (state.group.type) {
+                                GroupType.BASIC -> {
+                                    if (state.counts == 0L) {
+                                        stringResource(Res.string.group_status_empty)
+                                    } else {
+                                        pluralStringResource(
+                                            Res.plurals.group_status_proxies,
+                                            state.counts.toInt(),
+                                            state.counts,
+                                        )
+                                    }
+                                }
+
+                                GroupType.SUBSCRIPTION -> {
+                                    if (state.counts == 0L) {
+                                        if (state.group.subscription!!.lastUpdated > 0) {
+                                            stringResource(Res.string.group_status_updated_empty)
+                                        } else {
+                                            stringResource(Res.string.group_status_empty_subscription)
+                                        }
+                                    } else {
+                                        pluralStringResource(
+                                            Res.plurals.group_status_proxies,
+                                            state.counts.toInt(),
+                                            state.counts,
+                                        )
+                                    }
+                                }
+
+                                else -> stringResource(Res.string.group_status_empty)
+                            }
+
+                            Text(
+                                text = countText,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
 
-                        Row {
+                        // 操作按钮（编辑 / 更多）
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             if (!group.ungrouped) {
                                 SimpleIconButton(
                                     imageVector = vectorResource(Res.drawable.edit),
@@ -508,9 +505,7 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                                                     text = stringResource(Res.string.share_subscription),
                                                     leadingIcon = {
                                                         Icon(
-                                                            imageVector = vectorResource(
-                                                                Res.drawable.share,
-                                                            ),
+                                                            imageVector = vectorResource(Res.drawable.share),
                                                             contentDescription = null,
                                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                                         )
@@ -520,9 +515,7 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                                                     text = stringResource(Res.string.action_export_clipboard),
                                                     leadingIcon = {
                                                         Icon(
-                                                            imageVector = vectorResource(
-                                                                Res.drawable.content_copy,
-                                                            ),
+                                                            imageVector = vectorResource(Res.drawable.content_copy),
                                                             contentDescription = null,
                                                         )
                                                     },
@@ -542,9 +535,7 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                                                     text = stringResource(Res.string.share_qr_nfc),
                                                     leadingIcon = {
                                                         Icon(
-                                                            imageVector = vectorResource(
-                                                                Res.drawable.qr_code,
-                                                            ),
+                                                            imageVector = vectorResource(Res.drawable.qr_code),
                                                             contentDescription = null,
                                                         )
                                                     },
@@ -560,9 +551,7 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                                                     text = stringResource(Res.string.internal_link),
                                                     leadingIcon = {
                                                         Icon(
-                                                            imageVector = vectorResource(
-                                                                Res.drawable.link,
-                                                            ),
+                                                            imageVector = vectorResource(Res.drawable.link),
                                                             contentDescription = null,
                                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                                         )
@@ -572,9 +561,7 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                                                     text = stringResource(Res.string.action_export_clipboard),
                                                     leadingIcon = {
                                                         Icon(
-                                                            imageVector = vectorResource(
-                                                                Res.drawable.content_copy,
-                                                            ),
+                                                            imageVector = vectorResource(Res.drawable.content_copy),
                                                             contentDescription = null,
                                                         )
                                                     },
@@ -594,9 +581,7 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                                                     text = stringResource(Res.string.share_qr_nfc),
                                                     leadingIcon = {
                                                         Icon(
-                                                            imageVector = vectorResource(
-                                                                Res.drawable.qr_code,
-                                                            ),
+                                                            imageVector = vectorResource(Res.drawable.qr_code),
                                                             contentDescription = null,
                                                         )
                                                     },
@@ -679,73 +664,50 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                         }
                     }
 
-                    // 2. 详情信息行：流量与上次更新时间收纳为单行展示
+                    // 第二行：[已用/剩余流量 + 上次更新时间] --- [更新按钮]
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 0.dp, vertical = 8.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(bottom = 4.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
                             val subscription = group.subscription
-
-                            // 流量与更新时间排在同一行
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
+                            if (subscription != null &&
+                                (subscription.bytesUsed > 0L || subscription.bytesRemaining > 0)
                             ) {
-                                if (subscription != null &&
-                                    (subscription.bytesUsed > 0L || subscription.bytesRemaining > 0)
-                                ) {
-                                    Text(
-                                        text = if (subscription.bytesRemaining > 0L) {
-                                            stringResource(
-                                                Res.string.subscription_traffic,
-                                                subscription.bytesUsed.formatBytes(),
-                                                subscription.bytesRemaining.formatBytes(),
-                                            )
-                                        } else {
-                                            stringResource(
-                                                Res.string.subscription_used,
-                                                subscription.bytesUsed.formatBytes(),
-                                            )
-                                        },
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-
-                                if (state.group.type == GroupType.SUBSCRIPTION &&
-                                    state.group.subscription!!.lastUpdated > 0
-                                ) {
-                                    Text(
-                                        text = stringResource(
-                                            Res.string.subscription_last_updated,
-                                            DisplayTime.dateTime(
-                                                Instant.fromEpochSeconds(
-                                                    state.group.subscription!!.lastUpdated.toLong(),
-                                                ),
-                                            ),
-                                        ),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
+                                Text(
+                                    text = if (subscription.bytesRemaining > 0L) {
+                                        stringResource(
+                                            Res.string.subscription_traffic,
+                                            subscription.bytesUsed.formatBytes(),
+                                            subscription.bytesRemaining.formatBytes(),
+                                        )
+                                    } else {
+                                        stringResource(
+                                            Res.string.subscription_used,
+                                            subscription.bytesUsed.formatBytes(),
+                                        )
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
 
-                            // 到期时间独立展示
-                            if (subscription != null && subscription.expiryDate > 0) {
+                            if (state.group.type == GroupType.SUBSCRIPTION &&
+                                state.group.subscription!!.lastUpdated > 0
+                            ) {
                                 Text(
                                     text = stringResource(
-                                        Res.string.subscription_expire,
-                                        DisplayTime.date(Instant.fromEpochSeconds(subscription.expiryDate)),
+                                        Res.string.subscription_last_updated,
+                                        DisplayTime.dateTime(
+                                            Instant.fromEpochSeconds(
+                                                state.group.subscription!!.lastUpdated.toLong(),
+                                            ),
+                                        ),
                                     ),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -756,7 +718,6 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                         if (group.type == GroupType.SUBSCRIPTION) {
                             TextButton(
                                 onClick = { mainViewModel.updateSubscriptionGroup(group) },
-                                modifier = Modifier.padding(end = 8.dp),
                                 enabled = !state.isUpdating,
                             ) {
                                 Text(
@@ -769,7 +730,7 @@ private fun DraggableSwipeableItemScope<GroupItemUiState>.GroupCard(
                 }
             }
 
-            // 3. 进度条放置在卡片最底端
+            // 进度条保持在卡片底部
             if (state.isUpdating) {
                 LinearProgressIndicator(
                     modifier = Modifier.fillMaxWidth(),
