@@ -52,27 +52,19 @@ jobs:
       - name: Prepare assets
         if: steps.cache-assets.outputs.cache-hit != 'true'
         run: make assets
-      
-      # 1. 解码还原签名密钥文件
+
+      # 1. 解码还原签名密钥文件到根目录
       - name: Decode Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
           echo "$KEYSTORE_BASE64" | base64 --decode > release.keystore
 
-      # 2. 写入 local.properties 签名配置
+      # 2. 写入项目原本要求的 local.properties
       - name: Write signing properties
         env:
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: |
-          cat <<EOF >> local.properties
-          release.storeFile=$GITHUB_WORKSPACE/release.keystore
-          release.storePassword=$KEYSTORE_PASSWORD
-          release.keyAlias=$KEY_ALIAS
-          release.keyPassword=$KEY_PASSWORD
-          EOF
+          LOCAL_PROPERTIES: ${{ secrets.LOCAL_PROPERTIES }}
+        run: printf '%s\n' "$LOCAL_PROPERTIES" > local.properties
 
       - name: Build Android libcore
         run: make libcore_android
